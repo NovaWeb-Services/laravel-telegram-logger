@@ -15,7 +15,7 @@ A Laravel package for sending Telegram notifications when errors are logged. Get
 ## Requirements
 
 - PHP 8.1 or higher
-- Laravel 10.x or 11.x
+- Laravel 10.x, 11.x, or 12.x
 - Monolog 3.x
 
 ## Installation
