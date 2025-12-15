@@ -1,6 +1,6 @@
 <?php
 
-namespace Nova\TelegramLogger;
+namespace NWServices\TelegramLogger;
 
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;

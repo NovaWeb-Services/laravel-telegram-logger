@@ -1,6 +1,6 @@
 <?php
 
-namespace Nova\TelegramLogger;
+namespace NWServices\TelegramLogger;
 
 use Monolog\Level;
 use Monolog\Logger;

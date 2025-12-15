@@ -1,5 +1,5 @@
 {
-    "name": "nova/laravel-telegram-logger",
+    "name": "nwservices/laravel-telegram-logger",
     "description": "A Laravel package for sending Telegram notifications when errors are logged",
     "keywords": [
         "laravel",
@@ -28,18 +28,18 @@
     },
     "autoload": {
         "psr-4": {
-            "Nova\\TelegramLogger\\": "src/"
+            "NWServices\\TelegramLogger\\": "src/"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "Nova\\TelegramLogger\\Tests\\": "tests/"
+            "NWServices\\TelegramLogger\\Tests\\": "tests/"
         }
     },
     "extra": {
         "laravel": {
             "providers": [
-                "Nova\\TelegramLogger\\TelegramLoggerServiceProvider"
+                "NWServices\\TelegramLogger\\TelegramLoggerServiceProvider"
             ]
         }
     },

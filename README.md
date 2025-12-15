@@ -23,7 +23,7 @@ A Laravel package for sending Telegram notifications when errors are logged. Get
 Install the package via Composer:
 
 ```bash
-composer require nova/laravel-telegram-logger
+composer require nwservices/laravel-telegram-logger
 ```
 
 The service provider will be automatically registered through Laravel's package auto-discovery.
