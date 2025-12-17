@@ -44,9 +44,16 @@ class TelegramHandler extends AbstractProcessingHandler
 
             $message = $this->formatMessage($record);
 
-            $this->sendToTelegram($message);
+            $response = $this->sendToTelegram($message);
+
+            // If Markdown failed, retry with plain text
+            if (!$response['ok']) {
+                $plainMessage = $this->formatPlainMessage($record);
+                $this->sendToTelegram($plainMessage, false);
+            }
         } catch (\Throwable $e) {
-            // Fail silently to prevent logging failures from breaking the app
+            // Log to a fallback file to help diagnose issues
+            $this->logFallback($record, $e);
         }
     }
 
@@ -201,17 +208,73 @@ class TelegramHandler extends AbstractProcessingHandler
      * Send the message to Telegram.
      *
      * @param  string  $message
-     * @return void
+     * @param  bool  $useMarkdown
+     * @return array
      */
-    protected function sendToTelegram(string $message): void
+    protected function sendToTelegram(string $message, bool $useMarkdown = true): array
     {
         $url = "https://api.telegram.org/bot{$this->botToken}/sendMessage";
 
-        Http::timeout(5)->post($url, [
+        $payload = [
             'chat_id' => $this->chatId,
             'text' => $message,
-            'parse_mode' => 'Markdown',
             'disable_web_page_preview' => true,
-        ]);
+        ];
+
+        if ($useMarkdown) {
+            $payload['parse_mode'] = 'Markdown';
+        }
+
+        $response = Http::timeout(5)->post($url, $payload);
+
+        return $response->json() ?? ['ok' => false, 'description' => 'No response'];
+    }
+
+    /**
+     * Format the log record into a plain text message (no Markdown).
+     *
+     * @param  \Monolog\LogRecord  $record
+     * @return string
+     */
+    protected function formatPlainMessage(LogRecord $record): string
+    {
+        $emoji = $this->getLevelEmoji($record->level);
+        $levelName = strtoupper($record->level->name);
+        $timestamp = $record->datetime->format('Y-m-d H:i:s T');
+        $message = $this->truncate($record->message, 3000);
+
+        $text = "{$emoji} {$levelName}\n\n";
+        $text .= "Project: {$this->projectName}\n";
+        $text .= "Environment: {$this->environment}\n";
+        $text .= "Time: {$timestamp}\n\n";
+        $text .= "Message:\n{$message}";
+
+        if (!empty($record->context)) {
+            $context = $this->formatContext($record->context);
+            if (!empty($context)) {
+                $text .= "\n\nContext:\n{$context}";
+            }
+        }
+
+        return $text;
+    }
+
+    /**
+     * Log to a fallback file when Telegram sending fails.
+     *
+     * @param  \Monolog\LogRecord  $record
+     * @param  \Throwable  $exception
+     * @return void
+     */
+    protected function logFallback(LogRecord $record, \Throwable $exception): void
+    {
+        $fallbackPath = storage_path('logs/telegram-logger-errors.log');
+        $timestamp = date('Y-m-d H:i:s');
+        $entry = "[{$timestamp}] Telegram logger failed: {$exception->getMessage()}\n";
+        $entry .= "Original log: [{$record->level->name}] {$record->message}\n";
+        $entry .= "Exception trace: {$exception->getTraceAsString()}\n";
+        $entry .= str_repeat('-', 80) . "\n";
+
+        @file_put_contents($fallbackPath, $entry, FILE_APPEND | LOCK_EX);
     }
 }

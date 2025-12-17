@@ -1,5 +1,6 @@
 {
     "name": "nwservices/laravel-telegram-logger",
+    "version": "1.2.0",
     "description": "A Laravel package for sending Telegram notifications when errors are logged",
     "keywords": [
         "laravel",
