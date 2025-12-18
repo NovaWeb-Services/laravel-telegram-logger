@@ -1,22 +1,23 @@
 # Laravel Telegram Logger
 
-A Laravel package for sending Telegram notifications when errors are logged. Get instant alerts in your Telegram chat when critical errors occur in your Laravel application.
+A Laravel package that monitors your `laravel.log` file and sends Telegram notifications when errors occur. Get instant alerts in your Telegram chat when critical errors happen in your Laravel application.
 
 ## Features
 
-- Send error logs to Telegram in real-time
-- Configurable log levels (error, critical, alert, emergency, etc.)
+- Monitors `storage/logs/laravel.log` for new errors
+- Scheduled task runs via Laravel scheduler (e.g., every minute)
+- Only alerts on NEW errors (tracks file position to avoid duplicates)
+- Configurable log levels (ERROR, CRITICAL, ALERT, EMERGENCY)
 - Environment-based notifications (only send in production/staging)
 - Rate limiting to prevent spam from duplicate errors
 - Formatted messages with emojis for quick visual identification
-- Includes project name, environment, timestamp, and context
-- Graceful failure handling - won't break your app if Telegram is unavailable
+- Handles multi-line log entries (stack traces)
+- Detects log rotation automatically
 
 ## Requirements
 
 - PHP 8.1 or higher
 - Laravel 10.x, 11.x, or 12.x
-- Monolog 3.x
 
 ## Installation
 
@@ -75,62 +76,76 @@ TELEGRAM_LOGGER_CHAT_ID=your-chat-id-here
 TELEGRAM_LOGGER_PROJECT_NAME="${APP_NAME}"
 TELEGRAM_LOGGER_ENVIRONMENT="${APP_ENV}"
 TELEGRAM_LOGGER_NOTIFY_ENVIRONMENTS=production,staging
-TELEGRAM_LOGGER_LEVEL=error
 TELEGRAM_LOGGER_THROTTLE=60
+
+# Log monitoring settings
+TELEGRAM_LOGGER_LOG_PATH=storage/logs/laravel.log
+TELEGRAM_LOGGER_MONITOR_LEVELS=ERROR,CRITICAL,ALERT,EMERGENCY
+TELEGRAM_LOGGER_POSITION_STORAGE=cache
 ```
 
-## Adding the Telegram Channel to Laravel Logging
+## Setting Up the Scheduler
 
-Edit your `config/logging.php` file to add the Telegram channel:
+The package provides an artisan command that monitors your log file. You need to schedule it to run periodically.
+
+### Laravel 11+ (routes/console.php)
 
 ```php
-'channels' => [
-    // ... existing channels ...
+use Illuminate\Support\Facades\Schedule;
 
-    'telegram' => [
-        'driver' => 'telegram',
-        'level' => env('TELEGRAM_LOGGER_LEVEL', 'error'),
-    ],
-],
+Schedule::command('telegram:monitor-log')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->runInBackground();
 ```
 
-### Using with the Stack Channel
-
-The recommended approach is to add Telegram to your stack channel so it works alongside your existing logging:
+### Laravel 10 (app/Console/Kernel.php)
 
 ```php
-'channels' => [
-    'stack' => [
-        'driver' => 'stack',
-        'channels' => ['single', 'telegram'],
-        'ignore_exceptions' => false,
-    ],
-
-    'single' => [
-        'driver' => 'single',
-        'path' => storage_path('logs/laravel.log'),
-        'level' => env('LOG_LEVEL', 'debug'),
-    ],
-
-    'telegram' => [
-        'driver' => 'telegram',
-        'level' => env('TELEGRAM_LOGGER_LEVEL', 'error'),
-    ],
-],
+protected function schedule(Schedule $schedule): void
+{
+    $schedule->command('telegram:monitor-log')
+        ->everyMinute()
+        ->withoutOverlapping()
+        ->runInBackground();
+}
 ```
 
-### Using Telegram for Specific Logging Only
+Make sure your server's cron is set up to run Laravel's scheduler:
 
-You can also log to Telegram explicitly:
-
-```php
-use Illuminate\Support\Facades\Log;
-
-Log::channel('telegram')->error('Something went wrong!', [
-    'user_id' => $user->id,
-    'action' => 'payment_failed',
-]);
+```bash
+* * * * * cd /path-to-your-project && php artisan schedule:run >> /dev/null 2>&1
 ```
+
+## Artisan Command
+
+### Basic Usage
+
+```bash
+# Run the log monitor (typically via scheduler)
+php artisan telegram:monitor-log
+
+# Test without sending (dry run)
+php artisan telegram:monitor-log --dry-run
+
+# Reset the position tracker (start fresh)
+php artisan telegram:monitor-log --reset
+
+# Monitor a custom log file
+php artisan telegram:monitor-log --log-path=/var/log/myapp/app.log
+
+# Monitor specific levels only
+php artisan telegram:monitor-log --levels=ERROR,CRITICAL
+```
+
+### Command Options
+
+| Option | Description |
+|--------|-------------|
+| `--log-path` | Path to log file (default: `storage/logs/laravel.log`) |
+| `--levels` | Comma-separated log levels to monitor (default: from config) |
+| `--dry-run` | Parse and display errors without sending to Telegram |
+| `--reset` | Reset the file position tracker |
 
 ## Configuration Options
 
@@ -141,8 +156,19 @@ Log::channel('telegram')->error('Something went wrong!', [
 | `project_name` | `APP_NAME` | Project name displayed in notifications |
 | `environment` | `APP_ENV` | Environment name displayed in notifications |
 | `notify_environments` | `['production', 'staging']` | Only send notifications in these environments |
-| `level` | `'error'` | Minimum log level to trigger notifications |
 | `throttle` | `60` | Seconds to wait before sending duplicate messages |
+| `log_path` | `storage/logs/laravel.log` | Path to the log file to monitor |
+| `monitor_levels` | `ERROR,CRITICAL,ALERT,EMERGENCY` | Log levels to monitor |
+| `position_storage` | `cache` | Where to store file position (`cache` or `file`) |
+
+## How It Works
+
+1. The `telegram:monitor-log` command runs on a schedule (e.g., every minute)
+2. It reads `laravel.log` from the last saved position
+3. Parses new content for log entries matching configured levels (e.g., `.ERROR`)
+4. Sends Telegram notifications for each matching entry
+5. Saves the new file position to avoid re-processing
+6. Automatically detects log rotation and resets position
 
 ## Log Level Emojis
 
@@ -166,19 +192,17 @@ Messages are prefixed with emojis for quick visual identification:
 
 Project: My Laravel App
 Environment: production
-Time: 2025-01-15 14:30:45 UTC
+Time: 2025-01-15 14:30:45
 
 Message:
 SQLSTATE[HY000] [2002] Connection refused
+#0 /var/www/app/Database/Connection.php(42): PDO->__construct()
+#1 /var/www/app/Database/Manager.php(123): Connection->connect()
+...
 
 Context:
 {
-    "exception": {
-        "class": "PDOException",
-        "message": "SQLSTATE[HY000] [2002] Connection refused",
-        "file": "/var/www/app/Database/Connection.php",
-        "line": 42
-    }
+    "environment": "production"
 }
 ```
 
@@ -186,8 +210,15 @@ Context:
 
 To test if your configuration is working:
 
-```php
-Log::channel('telegram')->error('Test notification from Laravel Telegram Logger');
+```bash
+# Add a test error to your log file
+echo "[$(date '+%Y-%m-%d %H:%M:%S')] production.ERROR: Test error from Laravel Telegram Logger" >> storage/logs/laravel.log
+
+# Run the monitor in dry-run mode
+php artisan telegram:monitor-log --dry-run
+
+# Or run it for real
+php artisan telegram:monitor-log
 ```
 
 ## Security
@@ -195,7 +226,7 @@ Log::channel('telegram')->error('Test notification from Laravel Telegram Logger'
 - Never commit your bot token to version control
 - Use environment variables for all sensitive configuration
 - Consider using a dedicated bot for each project
-- Be mindful of what information you include in log context
+- Be mindful of what information appears in your logs
 
 ## License
 

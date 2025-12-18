@@ -3,6 +3,8 @@
 namespace NWServices\TelegramLogger;
 
 use Illuminate\Support\ServiceProvider;
+use NWServices\TelegramLogger\Commands\MonitorLogCommand;
+use NWServices\TelegramLogger\Services\TelegramNotifier;
 
 class TelegramLoggerServiceProvider extends ServiceProvider
 {
@@ -15,6 +17,11 @@ class TelegramLoggerServiceProvider extends ServiceProvider
             __DIR__ . '/config/telegram-logger.php',
             'telegram-logger'
         );
+
+        // Bind the notifier as a singleton
+        $this->app->singleton(TelegramNotifier::class, function ($app) {
+            return new TelegramNotifier();
+        });
     }
 
     /**
@@ -26,8 +33,11 @@ class TelegramLoggerServiceProvider extends ServiceProvider
             __DIR__ . '/config/telegram-logger.php' => config_path('telegram-logger.php'),
         ], 'telegram-logger-config');
 
-        $this->app->make('log')->extend('telegram', function ($app, array $config) {
-            return (new TelegramLogger())($config);
-        });
+        // Register the artisan command
+        if ($this->app->runningInConsole()) {
+            $this->commands([
+                MonitorLogCommand::class,
+            ]);
+        }
     }
 }

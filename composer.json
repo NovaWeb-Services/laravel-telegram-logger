@@ -1,13 +1,13 @@
 {
     "name": "nwservices/laravel-telegram-logger",
-    "version": "1.2.0",
-    "description": "A Laravel package for sending Telegram notifications when errors are logged",
+    "version": "2.0.0",
+    "description": "A Laravel package that monitors laravel.log and sends Telegram notifications when errors occur",
     "keywords": [
         "laravel",
         "telegram",
         "logger",
         "notifications",
-        "monolog",
+        "log-monitor",
         "error-handling"
     ],
     "type": "library",
@@ -20,8 +20,7 @@
     ],
     "require": {
         "php": "^8.1",
-        "illuminate/support": "^10.0|^11.0|^12.0",
-        "monolog/monolog": "^3.0"
+        "illuminate/support": "^10.0|^11.0|^12.0"
     },
     "require-dev": {
         "orchestra/testbench": "^8.0|^9.0",

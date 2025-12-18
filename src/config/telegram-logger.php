@@ -76,4 +76,36 @@ return [
     |
     */
     'throttle' => (int) env('TELEGRAM_LOGGER_THROTTLE', 60),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Log File Path
+    |--------------------------------------------------------------------------
+    |
+    | The path to the log file to monitor. Defaults to Laravel's standard log.
+    |
+    */
+    'log_path' => env('TELEGRAM_LOGGER_LOG_PATH', storage_path('logs/laravel.log')),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Monitor Levels
+    |--------------------------------------------------------------------------
+    |
+    | Log levels to monitor. Comma-separated string.
+    | Available: DEBUG, INFO, NOTICE, WARNING, ERROR, CRITICAL, ALERT, EMERGENCY
+    |
+    */
+    'monitor_levels' => env('TELEGRAM_LOGGER_MONITOR_LEVELS', 'ERROR,CRITICAL,ALERT,EMERGENCY'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Position Storage Method
+    |--------------------------------------------------------------------------
+    |
+    | Where to store the last read file position.
+    | Options: 'cache' (Laravel cache) or 'file' (storage/app/telegram-logger-position.json)
+    |
+    */
+    'position_storage' => env('TELEGRAM_LOGGER_POSITION_STORAGE', 'cache'),
 ];
